@@ -8,7 +8,8 @@ app.use(bodyParser.json());
 // ==========================
 // ENVIRONMENT VARIABLES
 // ==========================
-const SECRET_KEY = process.env.SECRET_KEY || "MDMDx2210";
+const SECRET_KEY = process.env.SECRET_KEY || "MDMDx2210"; // untuk Roblox
+const SOCIABUZZ_TOKEN = process.env.SOCIABUZZ_WEBHOOK_TOKEN; // dari dashboard Sociabuzz
 const PORT = process.env.PORT || 3000;
 
 // ==========================
@@ -22,28 +23,38 @@ let sentToRoblox = new Set();
 // ==========================
 app.post("/api/webhook/sociabuzz", async (req, res) => {
   try {
-    const payload = req.body?.data || req.body || {};
+    // 🔐 VALIDASI TOKEN SOCIABUZZ
+    const incomingToken =
+      req.headers["x-webhook-token"] ||
+      req.headers["authorization"] ||
+      req.body?.token;
 
+    if (!SOCIABUZZ_TOKEN || incomingToken !== SOCIABUZZ_TOKEN) {
+      return res.status(401).json({ ok: false, error: "Invalid webhook token" });
+    }
+
+    // 📦 PAYLOAD AMAN
+    const payload = req.body?.data || req.body || {};
     console.log("Webhook Sociabuzz masuk:", payload);
 
-    const donation = {
-      id: Date.now().toString() + Math.floor(Math.random() * 1000),
-      donor: payload.supporter_name || "Anonymous",
-      amount: Number(payload.amount || 0),
-      message: payload.message || "",
-      platform: "sociabuzz",
-      matchedUsername: payload.supporter_name || "Anonymous",
-      ts: Date.now()
-    };
-
-    // validasi minimal
-    if (donation.amount <= 0) {
+    const amount = Number(payload.amount || payload.total || 0);
+    if (amount <= 0) {
       return res.json({ ok: false, reason: "Invalid amount" });
     }
 
+    const donation = {
+      id: payload.id || (Date.now().toString() + Math.floor(Math.random() * 1000)),
+      donor: payload.supporter_name || payload.name || "Anonymous",
+      amount,
+      message: payload.message || "",
+      platform: "sociabuzz",
+      matchedUsername: payload.supporter_name || payload.name || "Anonymous",
+      ts: Date.now()
+    };
+
     donations.push(donation);
 
-    // --- Kirim ke Roblox (opsional) ---
+    // 🎮 KIRIM KE ROBLOX
     if (!sentToRoblox.has(donation.id)) {
       const ROBLOX_API = process.env.ROBLOX_API;
       if (ROBLOX_API) {
@@ -58,7 +69,7 @@ app.post("/api/webhook/sociabuzz", async (req, res) => {
       sentToRoblox.add(donation.id);
     }
 
-    res.json({ ok: true, received: donation });
+    res.json({ ok: true });
 
   } catch (err) {
     console.error("Webhook error:", err);
@@ -88,15 +99,13 @@ app.post("/api/register/:secret", (req, res) => {
     return res.status(403).json({ ok: false, error: "Invalid secret key" });
   }
 
-  const { donor, amount, message, matchedUsername } = req.body || {};
-  console.log("Register donation:", { donor, matchedUsername, amount, message });
-
-  res.json({ ok: true, code: "REGISTERED" });
+  console.log("Register donation:", req.body);
+  res.json({ ok: true });
 });
 
 // ==========================
 // START SERVER
 // ==========================
 app.listen(PORT, () => {
-  console.log(`Donation API (Sociabuzz) running on port ${PORT}`);
+  console.log(`✅ Donation API (Sociabuzz) running on port ${PORT}`);
 });
