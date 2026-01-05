@@ -9,7 +9,7 @@ app.use(bodyParser.json());
 // ENVIRONMENT VARIABLES
 // ==========================
 const SECRET_KEY = process.env.SECRET_KEY || "MDMDx2210"; // untuk Roblox
-const SOCIABUZZ_TOKEN = process.env.SOCIABUZZ_WEBHOOK_TOKEN; // dari dashboard Sociabuzz
+const SOCIABUZZ_TOKEN = process.env.SOCIABUZZ_TOKEN; // dari dashboard Sociabuzz
 const PORT = process.env.PORT || 3000;
 
 // ==========================
