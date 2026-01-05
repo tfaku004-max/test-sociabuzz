@@ -10,7 +10,13 @@ app.use(bodyParser.json());
 // ==========================
 const SECRET_KEY = process.env.SECRET_KEY || "MDMDx2210"; // untuk Roblox
 const SOCIABUZZ_TOKEN = process.env.SOCIABUZZ_TOKEN; // dari dashboard Sociabuzz
+const ROBLOX_API = process.env.ROBLOX_API; // opsional
 const PORT = process.env.PORT || 3000;
+
+// Debug: pastikan environment variable terbaca
+console.log("✅ SECRET_KEY:", SECRET_KEY);
+console.log("✅ SOCIABUZZ_TOKEN:", SOCIABUZZ_TOKEN);
+console.log("✅ ROBLOX_API:", ROBLOX_API);
 
 // ==========================
 // STORAGE SEMENTARA
@@ -23,19 +29,33 @@ let sentToRoblox = new Set();
 // ==========================
 app.post("/api/webhook/sociabuzz", async (req, res) => {
   try {
-    // 🔐 VALIDASI TOKEN SOCIABUZZ
-    const incomingToken =
+    // Ambil token dari header atau body
+    let incomingToken =
       req.headers["x-webhook-token"] ||
       req.headers["authorization"] ||
       req.body?.token;
 
-    if (!SOCIABUZZ_TOKEN || incomingToken !== SOCIABUZZ_TOKEN) {
+    // Jika pakai format "Bearer <token>", strip "Bearer "
+    if (incomingToken?.startsWith("Bearer ")) {
+      incomingToken = incomingToken.slice(7).trim();
+    }
+
+    // Debug: cek token masuk
+    console.log("🔑 Incoming token:", incomingToken);
+
+    if (!SOCIABUZZ_TOKEN) {
+      console.error("⚠️ SOCIABUZZ_TOKEN undefined!");
+      return res.status(500).json({ ok: false, error: "Server misconfiguration" });
+    }
+
+    if (incomingToken !== SOCIABUZZ_TOKEN) {
+      console.log("❌ Token mismatch! Incoming:", incomingToken, "Expected:", SOCIABUZZ_TOKEN);
       return res.status(401).json({ ok: false, error: "Invalid webhook token" });
     }
 
     // 📦 PAYLOAD AMAN
     const payload = req.body?.data || req.body || {};
-    console.log("Webhook Sociabuzz masuk:", payload);
+    console.log("📥 Webhook Sociabuzz masuk:", payload);
 
     const amount = Number(payload.amount || payload.total || 0);
     if (amount <= 0) {
@@ -55,9 +75,8 @@ app.post("/api/webhook/sociabuzz", async (req, res) => {
     donations.push(donation);
 
     // 🎮 KIRIM KE ROBLOX
-    if (!sentToRoblox.has(donation.id)) {
-      const ROBLOX_API = process.env.ROBLOX_API;
-      if (ROBLOX_API) {
+    if (!sentToRoblox.has(donation.id) && ROBLOX_API) {
+      try {
         await axios.post(`${ROBLOX_API}/${SECRET_KEY}`, {
           donor: donation.donor,
           amount: donation.amount,
@@ -65,8 +84,11 @@ app.post("/api/webhook/sociabuzz", async (req, res) => {
           matchedUsername: donation.matchedUsername,
           platform: donation.platform
         });
+        sentToRoblox.add(donation.id);
+        console.log("✅ Donation dikirim ke Roblox:", donation);
+      } catch (err) {
+        console.error("❌ Gagal kirim ke Roblox:", err.message);
       }
-      sentToRoblox.add(donation.id);
     }
 
     res.json({ ok: true });
