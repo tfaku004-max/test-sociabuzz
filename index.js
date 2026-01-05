@@ -36,15 +36,15 @@ app.post("/api/webhook/sociabuzz", async (req, res) => {
     const amount = Number(payload.amount_settled || payload.price || 0);
     if (amount <= 0) return res.json({ ok: false, reason: "Invalid amount" });
 
-    const donation = {
-      id: payload.id || (Date.now().toString() + Math.floor(Math.random() * 1000)),
-      donor: payload.supporter || payload.name || "Anonymous",
-      amount,
-      message: payload.message || "",
-      platform: "sociabuzz",
-      matchedUsername: payload.supporter || payload.name || "Anonymous",
-      ts: Date.now()
-    };
+const donation = {
+  id: payload.id || (Date.now().toString() + Math.floor(Math.random() * 1000)),
+  donor: payload.supporter || "Anonymous",
+  amount: Number(payload.amount_settled || payload.price || 0),
+  message: payload.message || "",
+  platform: "sociabuzz",
+  matchedUsername: payload.supporter || "Anonymous",
+  ts: Date.now()
+};
 
     donations.push(donation);
 
