@@ -29,59 +29,30 @@ let sentToRoblox = new Set();
 // ==========================
 app.post("/api/webhook/sociabuzz", async (req, res) => {
   try {
-    console.log("========================================");
     console.log("📥 Webhook masuk:", new Date().toISOString());
     console.log("Body:", req.body);
 
-    // Ambil token dari body (Sociabuzz mengirim token di body)
-    const incomingToken = req.body?.token;
-    console.log("🔑 Incoming token:", incomingToken);
-    console.log("✅ Expected SOCIABUZZ_TOKEN:", SOCIABUZZ_TOKEN);
-
-    // Cek environment variable
-    if (!SOCIABUZZ_TOKEN) {
-      console.error("⚠️ SOCIABUZZ_TOKEN undefined! Periksa environment variable di Railway.");
-      return res.status(500).json({ ok: false, error: "Server misconfiguration" });
-    }
-
-    // Validasi token
-    if (incomingToken !== SOCIABUZZ_TOKEN) {
-      console.error("❌ Token mismatch!");
-      return res.status(401).json({ ok: false, error: "Invalid webhook token" });
-    }
-
-    // Payload aman
-    const payload = req.body?.data || req.body || {};
-
-    const amount = Number(payload.amount || payload.total || 0);
-    if (amount <= 0) {
-      return res.json({ ok: false, reason: "Invalid amount" });
-    }
+    const payload = req.body || {};
+    const amount = Number(payload.amount_settled || payload.price || 0);
+    if (amount <= 0) return res.json({ ok: false, reason: "Invalid amount" });
 
     const donation = {
       id: payload.id || (Date.now().toString() + Math.floor(Math.random() * 1000)),
-      donor: payload.supporter_name || payload.name || "Anonymous",
+      donor: payload.supporter || payload.name || "Anonymous",
       amount,
       message: payload.message || "",
       platform: "sociabuzz",
-      matchedUsername: payload.supporter_name || payload.name || "Anonymous",
+      matchedUsername: payload.supporter || payload.name || "Anonymous",
       ts: Date.now()
     };
 
     donations.push(donation);
 
-    // Kirim ke Roblox jika ada API
+    // Kirim ke Roblox
     if (!sentToRoblox.has(donation.id) && ROBLOX_API) {
       try {
-        await axios.post(`${ROBLOX_API}/${SECRET_KEY}`, {
-          donor: donation.donor,
-          amount: donation.amount,
-          message: donation.message,
-          matchedUsername: donation.matchedUsername,
-          platform: donation.platform
-        });
+        await axios.post(`${ROBLOX_API}/${SECRET_KEY}`, donation);
         sentToRoblox.add(donation.id);
-        console.log("✅ Donation dikirim ke Roblox:", donation);
       } catch (err) {
         console.error("❌ Gagal kirim ke Roblox:", err.message);
       }
