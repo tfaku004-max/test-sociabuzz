@@ -29,33 +29,29 @@ let sentToRoblox = new Set();
 // ==========================
 app.post("/api/webhook/sociabuzz", async (req, res) => {
   try {
-    // Ambil token dari header atau body
-    let incomingToken =
-      req.headers["x-webhook-token"] ||
-      req.headers["authorization"] ||
-      req.body?.token;
+    console.log("========================================");
+    console.log("📥 Webhook masuk:", new Date().toISOString());
+    console.log("Body:", req.body);
 
-    // Jika pakai format "Bearer <token>", strip "Bearer "
-    if (incomingToken?.startsWith("Bearer ")) {
-      incomingToken = incomingToken.slice(7).trim();
-    }
-
-    // Debug: cek token masuk
+    // Ambil token dari body (Sociabuzz mengirim token di body)
+    const incomingToken = req.body?.token;
     console.log("🔑 Incoming token:", incomingToken);
+    console.log("✅ Expected SOCIABUZZ_TOKEN:", SOCIABUZZ_TOKEN);
 
+    // Cek environment variable
     if (!SOCIABUZZ_TOKEN) {
-      console.error("⚠️ SOCIABUZZ_TOKEN undefined!");
+      console.error("⚠️ SOCIABUZZ_TOKEN undefined! Periksa environment variable di Railway.");
       return res.status(500).json({ ok: false, error: "Server misconfiguration" });
     }
 
+    // Validasi token
     if (incomingToken !== SOCIABUZZ_TOKEN) {
-      console.log("❌ Token mismatch! Incoming:", incomingToken, "Expected:", SOCIABUZZ_TOKEN);
+      console.error("❌ Token mismatch!");
       return res.status(401).json({ ok: false, error: "Invalid webhook token" });
     }
 
-    // 📦 PAYLOAD AMAN
+    // Payload aman
     const payload = req.body?.data || req.body || {};
-    console.log("📥 Webhook Sociabuzz masuk:", payload);
 
     const amount = Number(payload.amount || payload.total || 0);
     if (amount <= 0) {
@@ -74,7 +70,7 @@ app.post("/api/webhook/sociabuzz", async (req, res) => {
 
     donations.push(donation);
 
-    // 🎮 KIRIM KE ROBLOX
+    // Kirim ke Roblox jika ada API
     if (!sentToRoblox.has(donation.id) && ROBLOX_API) {
       try {
         await axios.post(`${ROBLOX_API}/${SECRET_KEY}`, {
